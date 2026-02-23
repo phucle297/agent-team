@@ -1,0 +1,10 @@
+[general]
+contrib = CT1
+
+[title]
+regex = ^(feat|fix|docs|chore|refactor|test|build|ci|perf)(\([a-z0-9_\-/]+\))?: .+
+max-length = 72
+
+[contrib:CT1]
+commit-msg-regex = ^(feat|fix|docs|chore|refactor|test|build|ci|perf)(\([a-z0-9_\-/]+\))?: .+
+ignore-merge-commits = true
