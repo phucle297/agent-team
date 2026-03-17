@@ -1,0 +1,29 @@
+[project]
+name = "ai-agent-team"
+version = "0.2.0"
+description = "A multi-agent AI system with TDD workflow, session management, and interactive TUI"
+requires-python = ">=3.12"
+dependencies = [
+"langgraph",
+"langchain-google-genai",
+"langchain-anthropic",
+"python-dotenv",
+"textual>=0.79.0",
+]
+
+[project.scripts]
+agents = "cli.main:main"
+
+[project.optional-dependencies]
+test = [
+"pytest>=8.0",
+"pytest-cov>=5.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["agents*", "cli*", "graph*", "utils*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-v --tb=short"
