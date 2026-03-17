@@ -1,8 +1,8 @@
 """Tests for utils/llm.py - LLM wrapper functions."""
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
-from utils.llm import extract_text, get_claude, get_google
+from utils.llm import extract_text, get_claude, get_google, invoke_with_retry
 
 
 class TestGetClaude:
@@ -73,3 +73,95 @@ class TestExtractText:
 
     def test_integer_converted_to_string(self):
         assert extract_text(42) == "42"
+
+
+class TestInvokeWithRetry:
+    """Tests for the invoke_with_retry helper function."""
+
+    def test_succeeds_on_first_attempt(self):
+        llm = MagicMock()
+        llm.invoke.return_value = "success"
+        result = invoke_with_retry(llm, "prompt", max_retries=3, base_delay=0)
+        assert result == "success"
+        assert llm.invoke.call_count == 1
+
+    def test_retries_on_connection_error(self):
+        llm = MagicMock()
+        llm.invoke.side_effect = [
+            ConnectionError("Connection refused"),
+            "success",
+        ]
+        result = invoke_with_retry(llm, "prompt", max_retries=3, base_delay=0)
+        assert result == "success"
+        assert llm.invoke.call_count == 2
+
+    def test_retries_on_timeout_error(self):
+        llm = MagicMock()
+        llm.invoke.side_effect = [
+            TimeoutError("Request timed out"),
+            "success",
+        ]
+        result = invoke_with_retry(llm, "prompt", max_retries=3, base_delay=0)
+        assert result == "success"
+        assert llm.invoke.call_count == 2
+
+    def test_retries_on_ssl_error(self):
+        llm = MagicMock()
+        llm.invoke.side_effect = [
+            Exception("SSL: CERTIFICATE_VERIFY_FAILED"),
+            "success",
+        ]
+        result = invoke_with_retry(llm, "prompt", max_retries=3, base_delay=0)
+        assert result == "success"
+        assert llm.invoke.call_count == 2
+
+    def test_retries_on_rate_limit_429(self):
+        llm = MagicMock()
+        llm.invoke.side_effect = [
+            Exception("Error 429: Rate limit exceeded"),
+            "success",
+        ]
+        result = invoke_with_retry(llm, "prompt", max_retries=3, base_delay=0)
+        assert result == "success"
+        assert llm.invoke.call_count == 2
+
+    def test_raises_after_max_retries_exhausted(self):
+        llm = MagicMock()
+        llm.invoke.side_effect = ConnectionError("Connection refused")
+        import pytest
+        with pytest.raises(ConnectionError, match="Connection refused"):
+            invoke_with_retry(llm, "prompt", max_retries=2, base_delay=0)
+        assert llm.invoke.call_count == 2
+
+    def test_raises_immediately_on_non_retryable_error(self):
+        llm = MagicMock()
+        llm.invoke.side_effect = ValueError("Invalid prompt format")
+        import pytest
+        with pytest.raises(ValueError, match="Invalid prompt format"):
+            invoke_with_retry(llm, "prompt", max_retries=3, base_delay=0)
+        assert llm.invoke.call_count == 1
+
+    def test_retries_on_503_unavailable(self):
+        llm = MagicMock()
+        llm.invoke.side_effect = [
+            Exception("503 Service Unavailable"),
+            "success",
+        ]
+        result = invoke_with_retry(llm, "prompt", max_retries=3, base_delay=0)
+        assert result == "success"
+        assert llm.invoke.call_count == 2
+
+    def test_retries_on_overloaded(self):
+        llm = MagicMock()
+        llm.invoke.side_effect = [
+            Exception("API is temporarily overloaded"),
+            "success",
+        ]
+        result = invoke_with_retry(llm, "prompt", max_retries=3, base_delay=0)
+        assert result == "success"
+
+    def test_passes_prompt_to_llm(self):
+        llm = MagicMock()
+        llm.invoke.return_value = "ok"
+        invoke_with_retry(llm, "my specific prompt", max_retries=1, base_delay=0)
+        llm.invoke.assert_called_once_with("my specific prompt")

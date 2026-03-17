@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from utils.agent_events import AgentStatus, tracker
-from utils.llm import extract_text, get_claude
+from utils.llm import extract_text, get_claude, invoke_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ def reviewer(state: Any) -> dict:
 
     tracker.update("reviewer", AgentStatus.WORKING, f"Reviewing (iteration {iteration})...")
     logger.info("Reviewer: reviewing code (iteration %d)...", iteration)
-    res = llm.invoke(prompt)
+    res = invoke_with_retry(llm, prompt)
     review_content = extract_text(res.content)
     logger.info("Reviewer: review complete.")
     tracker.update("reviewer", AgentStatus.DONE, f"Review complete (iteration {iteration})")

@@ -603,6 +603,7 @@ class AgentTeamApp(App):
 
         except Exception as e:
             error_msg = str(e)
+            logger.exception("Agent pipeline failed: %s", error_msg)
             self.call_from_thread(
                 self._log_agent, "System", f"[red]Error: {error_msg}[/red]"
             )

@@ -4,7 +4,7 @@ import logging
 from typing import Any
 
 from utils.agent_events import AgentStatus, tracker
-from utils.llm import extract_text, get_claude
+from utils.llm import extract_text, get_claude, invoke_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ def fixer(state: Any) -> dict:
 
     tracker.update("fixer", AgentStatus.WORKING, "Applying review feedback...")
     logger.info("Fixer: applying review feedback...")
-    res = llm.invoke(prompt)
+    res = invoke_with_retry(llm, prompt)
     logger.info("Fixer: code fixed.")
     tracker.update("fixer", AgentStatus.DONE, "Code fixed")
 

@@ -11,7 +11,7 @@ import logging
 from typing import Any
 
 from utils.agent_events import AgentStatus, tracker
-from utils.llm import extract_text, get_google
+from utils.llm import extract_text, get_google, invoke_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ def orchestrator(state: Any) -> dict:
     )
 
     logger.info("Orchestrator: decomposing task into sub-tasks...")
-    res = llm.invoke(prompt)
+    res = invoke_with_retry(llm, prompt)
     raw = extract_text(res.content).strip()
 
     # Strip markdown fences if present

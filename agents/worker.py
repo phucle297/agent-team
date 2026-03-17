@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from utils.agent_events import AgentStatus, tracker
-from utils.llm import extract_text, get_claude
+from utils.llm import extract_text, get_claude, invoke_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -69,11 +69,16 @@ def worker(state: Any) -> dict:
     )
 
     logger.info("Worker [%s]: executing sub-task '%s'...", task_id, title)
-    res = llm.invoke(prompt)
-    output = extract_text(res.content)
-    logger.info("Worker [%s]: completed.", task_id)
 
-    t.update(worker_name, AgentStatus.DONE, f"{title[:40]} - done")
+    try:
+        res = invoke_with_retry(llm, prompt)
+        output = extract_text(res.content)
+        logger.info("Worker [%s]: completed.", task_id)
+        t.update(worker_name, AgentStatus.DONE, f"{title[:40]} - done")
+    except Exception as exc:
+        output = f"[ERROR] Worker {task_id} failed: {exc}"
+        logger.error("Worker [%s]: failed with %s", task_id, exc)
+        t.update(worker_name, AgentStatus.ERROR, f"{title[:40]} - error: {str(exc)[:50]}")
 
     return {
         "worker_results": [{

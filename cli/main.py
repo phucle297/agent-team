@@ -6,8 +6,29 @@ Usage:
     agents --rollback   Rollback the last session
 """
 
+import logging
 import os
 import sys
+
+
+def _configure_logging(workspace: str) -> None:
+    """Configure logging to write to <workspace>/logs/agent_team.log.
+
+    Creates the logs directory if it doesn't exist. All agent activity,
+    errors, and tracebacks are captured here for debugging.
+    """
+    log_dir = os.path.join(workspace, "logs")
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, "agent_team.log")
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+        handlers=[
+            logging.FileHandler(log_file),
+        ],
+        force=True,  # Override any prior basicConfig
+    )
 
 
 def main():
@@ -48,6 +69,7 @@ def _launch_tui():
     from cli.app import AgentTeamApp
 
     workspace = os.getcwd()
+    _configure_logging(workspace)
     app = AgentTeamApp(workspace=workspace)
     app.run()
 

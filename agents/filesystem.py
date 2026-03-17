@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 from utils.agent_events import AgentStatus, tracker
-from utils.llm import extract_text, get_claude
+from utils.llm import extract_text, get_claude, invoke_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ def filesystem_agent(state: dict) -> dict:
 
     tracker.update("filesystem", AgentStatus.WORKING, "Analyzing file operations...")
     logger.info("FileSystem Agent: analyzing code for file operations...")
-    res = llm.invoke(prompt)
+    res = invoke_with_retry(llm, prompt)
     raw = extract_text(res.content).strip()
 
     # Strip markdown fences if present

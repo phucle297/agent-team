@@ -4,7 +4,7 @@ import os
 import subprocess
 
 from utils.agent_events import AgentStatus, tracker
-from utils.llm import extract_text, get_claude
+from utils.llm import extract_text, get_claude, invoke_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ def tool_agent(state: dict) -> dict:
 
     tracker.update("tools", AgentStatus.WORKING, "Determining commands to run...")
     logger.info("Tool Agent: determining commands to run...")
-    res = llm.invoke(prompt)
+    res = invoke_with_retry(llm, prompt)
     raw = extract_text(res.content).strip()
 
     # Strip markdown fences if present
