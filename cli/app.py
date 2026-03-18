@@ -37,6 +37,7 @@ from utils.sessions import (
     fail_session,
     list_sessions,
     mark_rolled_back,
+    set_continuation,
 )
 from utils.snapshots import (
     backup_file,
@@ -541,7 +542,13 @@ class AgentTeamApp(App):
             )
 
             # Run the graph
-            result = app.invoke(initial_state)
+            result = app.invoke(initial_state)  # type: ignore[arg-type]
+
+            # Build a compact continuation note for the next session.
+            from utils.continuation import build_continuation_note
+            note = build_continuation_note(result)
+            if note:
+                set_continuation(session["id"], note)
 
             # Log results
             approved = result.get("approved", False)

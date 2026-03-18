@@ -36,6 +36,7 @@ def save_run(state: dict) -> None:
         "approved": state.get("approved", False),
         "iterations": state.get("iteration", 0),
         "files_changed": state.get("files_changed", []),
+        "continuation": state.get("continuation", "")[:5000] if state.get("continuation") else "",
     }
 
     runs.append(run_record)

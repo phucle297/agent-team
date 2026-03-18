@@ -4,14 +4,19 @@ import logging
 from typing import Any
 
 from utils.agent_events import AgentStatus, tracker
-from utils.llm import extract_text, get_claude, invoke_with_retry
+from utils.llm import (
+    extract_text,
+    get_llm,
+    invoke_with_retry,
+    invoke_with_retry_and_fallback,
+)
 
 logger = logging.getLogger(__name__)
 
 
 def fixer(state: Any) -> dict:
-    """Fix code based on reviewer feedback using Claude."""
-    llm = get_claude()
+    """Fix code based on reviewer feedback."""
+    llm, model_name = get_llm("anthropic")
     code = state.get("code", "")
     review = state.get("review", "")
     plan = state.get("plan", "")
@@ -27,8 +32,20 @@ def fixer(state: Any) -> dict:
 
     tracker.update("fixer", AgentStatus.WORKING, "Applying review feedback...")
     logger.info("Fixer: applying review feedback...")
-    res = invoke_with_retry(llm, prompt)
-    logger.info("Fixer: code fixed.")
-    tracker.update("fixer", AgentStatus.DONE, "Code fixed")
 
-    return {"code": extract_text(res.content)}
+    try:
+        res = invoke_with_retry_and_fallback(
+            llm,
+            prompt,
+            primary_model=model_name,
+            invoke_fn=invoke_with_retry,
+        )
+        fixed_code = extract_text(res.content)
+        logger.info("Fixer: code fixed.")
+        tracker.update("fixer", AgentStatus.DONE, "Code fixed")
+    except Exception as exc:
+        fixed_code = code  # Return original code on failure
+        logger.error("Fixer: failed with %s", exc)
+        tracker.update("fixer", AgentStatus.ERROR, f"Error: {str(exc)[:50]}")
+
+    return {"code": fixed_code}

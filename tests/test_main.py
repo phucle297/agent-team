@@ -7,10 +7,11 @@ import pytest
 
 
 class TestRunAgentTeam:
+    @patch("utils.continuation.build_continuation_note", return_value="")
     @patch("graph.workflow.build_graph")
     @patch("utils.memory.save_run")
     @patch("utils.memory.get_context_for_task", return_value="No previous runs found.")
-    def test_returns_final_output(self, mock_ctx, mock_save, mock_build):
+    def test_returns_final_output(self, mock_ctx, mock_save, mock_build, mock_cont):
         """Patch at source modules since run_agent_team uses lazy imports."""
         mock_app = MagicMock()
         mock_app.invoke.return_value = {
@@ -26,10 +27,11 @@ class TestRunAgentTeam:
 
         assert "APPROVED" in result or "great code" in result
 
+    @patch("utils.continuation.build_continuation_note", return_value="")
     @patch("graph.workflow.build_graph")
     @patch("utils.memory.save_run")
     @patch("utils.memory.get_context_for_task", return_value="No previous runs.")
-    def test_passes_task_to_graph(self, mock_ctx, mock_save, mock_build):
+    def test_passes_task_to_graph(self, mock_ctx, mock_save, mock_build, mock_cont):
         mock_app = MagicMock()
         mock_app.invoke.return_value = {"final": "done"}
         mock_build.return_value = mock_app
@@ -41,10 +43,11 @@ class TestRunAgentTeam:
         call_args = mock_app.invoke.call_args[0][0]
         assert call_args["input"] == "My specific task"
 
+    @patch("utils.continuation.build_continuation_note", return_value="")
     @patch("graph.workflow.build_graph")
     @patch("utils.memory.save_run")
     @patch("utils.memory.get_context_for_task", return_value="No previous runs.")
-    def test_saves_run_to_memory(self, mock_ctx, mock_save, mock_build):
+    def test_saves_run_to_memory(self, mock_ctx, mock_save, mock_build, mock_cont):
         mock_app = MagicMock()
         mock_app.invoke.return_value = {"final": "done", "approved": True}
         mock_build.return_value = mock_app
@@ -55,10 +58,11 @@ class TestRunAgentTeam:
 
         mock_save.assert_called_once()
 
+    @patch("utils.continuation.build_continuation_note", return_value="")
     @patch("graph.workflow.build_graph")
     @patch("utils.memory.save_run")
     @patch("utils.memory.get_context_for_task", return_value="No previous runs.")
-    def test_uses_provided_workspace(self, mock_ctx, mock_save, mock_build):
+    def test_uses_provided_workspace(self, mock_ctx, mock_save, mock_build, mock_cont):
         mock_app = MagicMock()
         mock_app.invoke.return_value = {"final": "done"}
         mock_build.return_value = mock_app
@@ -70,10 +74,11 @@ class TestRunAgentTeam:
         call_args = mock_app.invoke.call_args[0][0]
         assert call_args["workspace"] == "/custom/path"
 
+    @patch("utils.continuation.build_continuation_note", return_value="")
     @patch("graph.workflow.build_graph")
     @patch("utils.memory.save_run")
     @patch("utils.memory.get_context_for_task", return_value="No previous runs.")
-    def test_returns_no_output_message_on_missing_final(self, mock_ctx, mock_save, mock_build):
+    def test_returns_no_output_message_on_missing_final(self, mock_ctx, mock_save, mock_build, mock_cont):
         mock_app = MagicMock()
         mock_app.invoke.return_value = {}
         mock_build.return_value = mock_app

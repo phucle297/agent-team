@@ -5,7 +5,12 @@ from pathlib import Path
 from typing import Any
 
 from utils.agent_events import AgentStatus, tracker
-from utils.llm import extract_text, get_claude, invoke_with_retry
+from utils.llm import (
+    extract_text,
+    get_llm,
+    invoke_with_retry,
+    invoke_with_retry_and_fallback,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +22,8 @@ def _load_prompt() -> str:
 
 
 def reviewer(state: Any) -> dict:
-    """Review code and either approve or request revisions using Claude."""
-    llm = get_claude()
+    """Review code and either approve or request revisions."""
+    llm, model_name = get_llm("anthropic")
     code = state.get("code", "")
     plan = state.get("plan", "")
     iteration = state.get("iteration", 0)
@@ -27,10 +32,21 @@ def reviewer(state: Any) -> dict:
 
     tracker.update("reviewer", AgentStatus.WORKING, f"Reviewing (iteration {iteration})...")
     logger.info("Reviewer: reviewing code (iteration %d)...", iteration)
-    res = invoke_with_retry(llm, prompt)
-    review_content = extract_text(res.content)
-    logger.info("Reviewer: review complete.")
-    tracker.update("reviewer", AgentStatus.DONE, f"Review complete (iteration {iteration})")
+
+    try:
+        res = invoke_with_retry_and_fallback(
+            llm,
+            prompt,
+            primary_model=model_name,
+            invoke_fn=invoke_with_retry,
+        )
+        review_content = extract_text(res.content)
+        logger.info("Reviewer: review complete.")
+        tracker.update("reviewer", AgentStatus.DONE, f"Review complete (iteration {iteration})")
+    except Exception as exc:
+        review_content = f"[ERROR] Reviewer failed: {exc}"
+        logger.error("Reviewer: failed with %s", exc)
+        tracker.update("reviewer", AgentStatus.ERROR, f"Error: {str(exc)[:50]}")
 
     approved = "APPROVED" in str(review_content).upper().split("NEEDS_REVISION")[0]
 

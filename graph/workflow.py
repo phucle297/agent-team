@@ -25,6 +25,7 @@ from agents.orchestrator import orchestrator
 from agents.reviewer import reviewer
 from agents.tools import tool_agent
 from agents.worker import worker
+from utils.agent_events import AgentStatus, tracker
 
 logger = logging.getLogger(__name__)
 
@@ -65,11 +66,17 @@ class AgentState(TypedDict, total=False):
     project_context: str
 
 
-def fan_out_to_workers(state: dict) -> list[Send]:
+def fan_out_to_workers(state: Any) -> list[Send]:
     """Fan out sub-tasks to parallel worker nodes via Send()."""
     sub_tasks = state.get("sub_tasks", [])
     plan = state.get("plan", "")
     project_context = state.get("project_context", "")
+
+    tracker.update(
+        "orchestrator",
+        AgentStatus.WORKING,
+        f"Dispatching {len(sub_tasks)} worker(s)...",
+    )
 
     sends = []
     for st in sub_tasks:
@@ -83,7 +90,7 @@ def fan_out_to_workers(state: dict) -> list[Send]:
     return sends
 
 
-def aggregate(state: dict) -> dict:
+def aggregate(state: Any) -> dict:
     """Merge all worker results into a unified code block and research."""
     worker_results = state.get("worker_results", [])
 
@@ -115,7 +122,7 @@ def aggregate(state: dict) -> dict:
     }
 
 
-def should_continue_review(state: dict) -> str:
+def should_continue_review(state: Any) -> str:
     """Decide whether to continue the review-fix loop or finalize."""
     if state.get("approved", False):
         logger.info("Review loop: code APPROVED at iteration %d", state.get("iteration", 0))
@@ -130,7 +137,7 @@ def should_continue_review(state: dict) -> str:
     return "needs_revision"
 
 
-def finalize(state: dict) -> dict:
+def finalize(state: Any) -> dict:
     """Produce the final output from the last code and review."""
     code = state.get("code", "")
     review = state.get("review", "")

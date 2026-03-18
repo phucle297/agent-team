@@ -2,20 +2,26 @@ import json
 import logging
 import os
 from pathlib import Path
+from typing import Any
 
 from utils.agent_events import AgentStatus, tracker
-from utils.llm import extract_text, get_claude, invoke_with_retry
+from utils.llm import (
+    extract_text,
+    get_llm,
+    invoke_with_retry,
+    invoke_with_retry_and_fallback,
+)
 
 logger = logging.getLogger(__name__)
 
 
-def filesystem_agent(state: dict) -> dict:
+def filesystem_agent(state: Any) -> dict:
     """Read/write files and modify the repository based on generated code."""
     code = state.get("code", "")
     plan = state.get("plan", "")
     workspace = state.get("workspace", os.getcwd())
 
-    llm = get_claude()
+    llm, model_name = get_llm("anthropic")
 
     prompt = (
         "You are a file system agent. Given the following code and plan, "
@@ -32,8 +38,19 @@ def filesystem_agent(state: dict) -> dict:
 
     tracker.update("filesystem", AgentStatus.WORKING, "Analyzing file operations...")
     logger.info("FileSystem Agent: analyzing code for file operations...")
-    res = invoke_with_retry(llm, prompt)
-    raw = extract_text(res.content).strip()
+
+    try:
+        res = invoke_with_retry_and_fallback(
+            llm,
+            prompt,
+            primary_model=model_name,
+            invoke_fn=invoke_with_retry,
+        )
+        raw = extract_text(res.content).strip()
+    except Exception as exc:
+        logger.error("FileSystem Agent: LLM call failed with %s", exc)
+        tracker.update("filesystem", AgentStatus.ERROR, f"Error: {str(exc)[:50]}")
+        return {"file_operations": [], "files_changed": []}
 
     # Strip markdown fences if present
     if raw.startswith("```"):

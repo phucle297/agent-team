@@ -200,11 +200,11 @@ class TestBuildGraph:
 class TestGraphIntegration:
     """Integration test with mocked LLMs to verify the full flow."""
 
-    @patch("agents.tools.get_claude")
-    @patch("agents.filesystem.get_claude")
-    @patch("agents.reviewer.get_claude")
-    @patch("agents.worker.get_claude")
-    @patch("agents.orchestrator.get_google")
+    @patch("agents.tools.get_llm")
+    @patch("agents.filesystem.get_llm")
+    @patch("agents.reviewer.get_llm")
+    @patch("agents.worker.get_llm")
+    @patch("agents.orchestrator.get_llm")
     def test_full_flow_approved_first_pass(
         self, mock_orchestrator_llm, mock_worker_llm, mock_reviewer_llm,
         mock_filesystem_llm, mock_tools_llm
@@ -217,27 +217,27 @@ class TestGraphIntegration:
             '[{"id": "t1", "title": "Part A", "description": "do A", "type": "code"},'
             ' {"id": "t2", "title": "Part B", "description": "do B", "type": "research"}]'
         )
-        mock_orchestrator_llm.return_value = orch_llm
+        mock_orchestrator_llm.return_value = (orch_llm, "mock-model")
 
         # Worker
         worker_llm = MagicMock()
         worker_llm.invoke.return_value = FakeLLMResponse("def greet(): print('hi')")
-        mock_worker_llm.return_value = worker_llm
+        mock_worker_llm.return_value = (worker_llm, "mock-model")
 
         # Reviewer - APPROVED
         reviewer_llm = MagicMock()
         reviewer_llm.invoke.return_value = FakeLLMResponse("## Status: APPROVED\n\nLooks great!")
-        mock_reviewer_llm.return_value = reviewer_llm
+        mock_reviewer_llm.return_value = (reviewer_llm, "mock-model")
 
         # Filesystem agent
         filesystem_llm = MagicMock()
         filesystem_llm.invoke.return_value = FakeLLMResponse("[]")
-        mock_filesystem_llm.return_value = filesystem_llm
+        mock_filesystem_llm.return_value = (filesystem_llm, "mock-model")
 
         # Tool agent
         tools_llm = MagicMock()
         tools_llm.invoke.return_value = FakeLLMResponse("[]")
-        mock_tools_llm.return_value = tools_llm
+        mock_tools_llm.return_value = (tools_llm, "mock-model")
 
         app = build_graph()
         result = app.invoke({
@@ -259,12 +259,12 @@ class TestGraphIntegration:
         # Both workers should have run
         assert len(result["worker_results"]) == 2
 
-    @patch("agents.tools.get_claude")
-    @patch("agents.filesystem.get_claude")
-    @patch("agents.fixer.get_claude")
-    @patch("agents.reviewer.get_claude")
-    @patch("agents.worker.get_claude")
-    @patch("agents.orchestrator.get_google")
+    @patch("agents.tools.get_llm")
+    @patch("agents.filesystem.get_llm")
+    @patch("agents.fixer.get_llm")
+    @patch("agents.reviewer.get_llm")
+    @patch("agents.worker.get_llm")
+    @patch("agents.orchestrator.get_llm")
     def test_iteration_loop_fix_then_approve(
         self, mock_orchestrator_llm, mock_worker_llm, mock_reviewer_llm,
         mock_fixer_llm, mock_filesystem_llm, mock_tools_llm
@@ -276,12 +276,12 @@ class TestGraphIntegration:
         orch_llm.invoke.return_value = FakeLLMResponse(
             '[{"id": "t1", "title": "Build it", "description": "do it", "type": "code"}]'
         )
-        mock_orchestrator_llm.return_value = orch_llm
+        mock_orchestrator_llm.return_value = (orch_llm, "mock-model")
 
         # Worker
         worker_llm = MagicMock()
         worker_llm.invoke.return_value = FakeLLMResponse("bad code v1")
-        mock_worker_llm.return_value = worker_llm
+        mock_worker_llm.return_value = (worker_llm, "mock-model")
 
         # Reviewer - first rejects, then approves
         reviewer_llm = MagicMock()
@@ -289,22 +289,22 @@ class TestGraphIntegration:
             FakeLLMResponse("## Status: NEEDS_REVISION\n\nFix error handling"),
             FakeLLMResponse("## Status: APPROVED\n\nNow it's good!"),
         ]
-        mock_reviewer_llm.return_value = reviewer_llm
+        mock_reviewer_llm.return_value = (reviewer_llm, "mock-model")
 
         # Fixer
         fixer_llm = MagicMock()
         fixer_llm.invoke.return_value = FakeLLMResponse("fixed code v2")
-        mock_fixer_llm.return_value = fixer_llm
+        mock_fixer_llm.return_value = (fixer_llm, "mock-model")
 
         # Filesystem agent
         filesystem_llm = MagicMock()
         filesystem_llm.invoke.return_value = FakeLLMResponse("[]")
-        mock_filesystem_llm.return_value = filesystem_llm
+        mock_filesystem_llm.return_value = (filesystem_llm, "mock-model")
 
         # Tool agent
         tools_llm = MagicMock()
         tools_llm.invoke.return_value = FakeLLMResponse("[]")
-        mock_tools_llm.return_value = tools_llm
+        mock_tools_llm.return_value = (tools_llm, "mock-model")
 
         app = build_graph()
         result = app.invoke({
@@ -324,12 +324,12 @@ class TestGraphIntegration:
         assert result["iteration"] == 2
         assert "APPROVED" in result["final"]
 
-    @patch("agents.tools.get_claude")
-    @patch("agents.filesystem.get_claude")
-    @patch("agents.fixer.get_claude")
-    @patch("agents.reviewer.get_claude")
-    @patch("agents.worker.get_claude")
-    @patch("agents.orchestrator.get_google")
+    @patch("agents.tools.get_llm")
+    @patch("agents.filesystem.get_llm")
+    @patch("agents.fixer.get_llm")
+    @patch("agents.reviewer.get_llm")
+    @patch("agents.worker.get_llm")
+    @patch("agents.orchestrator.get_llm")
     def test_max_iterations_stops_loop(
         self, mock_orchestrator_llm, mock_worker_llm, mock_reviewer_llm,
         mock_fixer_llm, mock_filesystem_llm, mock_tools_llm
@@ -340,28 +340,28 @@ class TestGraphIntegration:
         orch_llm.invoke.return_value = FakeLLMResponse(
             '[{"id": "t1", "title": "Task", "description": "d", "type": "code"}]'
         )
-        mock_orchestrator_llm.return_value = orch_llm
+        mock_orchestrator_llm.return_value = (orch_llm, "mock-model")
 
         worker_llm = MagicMock()
         worker_llm.invoke.return_value = FakeLLMResponse("code")
-        mock_worker_llm.return_value = worker_llm
+        mock_worker_llm.return_value = (worker_llm, "mock-model")
 
         # Reviewer always rejects
         reviewer_llm = MagicMock()
         reviewer_llm.invoke.return_value = FakeLLMResponse("## Status: NEEDS_REVISION\n\nStill bad")
-        mock_reviewer_llm.return_value = reviewer_llm
+        mock_reviewer_llm.return_value = (reviewer_llm, "mock-model")
 
         fixer_llm = MagicMock()
         fixer_llm.invoke.return_value = FakeLLMResponse("attempted fix")
-        mock_fixer_llm.return_value = fixer_llm
+        mock_fixer_llm.return_value = (fixer_llm, "mock-model")
 
         filesystem_llm = MagicMock()
         filesystem_llm.invoke.return_value = FakeLLMResponse("[]")
-        mock_filesystem_llm.return_value = filesystem_llm
+        mock_filesystem_llm.return_value = (filesystem_llm, "mock-model")
 
         tools_llm = MagicMock()
         tools_llm.invoke.return_value = FakeLLMResponse("[]")
-        mock_tools_llm.return_value = tools_llm
+        mock_tools_llm.return_value = (tools_llm, "mock-model")
 
         app = build_graph()
         result = app.invoke({

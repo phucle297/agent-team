@@ -135,6 +135,8 @@ def complete_session(
     session["status"] = "completed"
     session["completed_at"] = datetime.now(timezone.utc).isoformat()
     session["final_output"] = final_output[:5000] if final_output else ""
+    # Optional continuation note (compact summary for next session)
+    session["continuation"] = session.get("continuation")
     session["approved"] = approved
     session["iterations"] = iterations
     session["files_changed"] = files_changed
@@ -158,6 +160,16 @@ def fail_session(session_id: str, error: str) -> None:
     session["status"] = "failed"
     session["completed_at"] = datetime.now(timezone.utc).isoformat()
     session["final_output"] = f"Error: {error[:2000]}"
+    session["continuation"] = session.get("continuation")
+    _save_session(session)
+
+
+def set_continuation(session_id: str, note: str) -> None:
+    """Attach a continuation note to a session."""
+    session = load_session(session_id)
+    if not session:
+        return
+    session["continuation"] = note[:20000] if note else ""
     _save_session(session)
 
 

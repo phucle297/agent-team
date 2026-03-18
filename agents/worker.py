@@ -11,7 +11,12 @@ from pathlib import Path
 from typing import Any
 
 from utils.agent_events import AgentStatus, tracker
-from utils.llm import extract_text, get_claude, invoke_with_retry
+from utils.llm import (
+    extract_text,
+    get_llm,
+    invoke_with_retry,
+    invoke_with_retry_and_fallback,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -44,8 +49,8 @@ Produce your output now:"""
 
 
 def worker(state: Any) -> dict:
-    """Execute a single sub-task using Claude."""
-    llm = get_claude()
+    """Execute a single sub-task."""
+    llm, model_name = get_llm("anthropic")
     sub_task = state.get("sub_task", {})
     project_context = state.get("project_context", "")
     plan = state.get("plan", "")
@@ -58,7 +63,7 @@ def worker(state: Any) -> dict:
     # Use custom tracker if provided (for testing), otherwise global
     t = state.get("_tracker", tracker)
     worker_name = f"worker_{task_id}"
-    t.update(worker_name, AgentStatus.WORKING, f"{title[:40]}...")
+    t.update(worker_name, AgentStatus.WORKING, f"Starting {task_type}: {title[:40]}")
 
     prompt = WORKER_PROMPT.format(
         plan=plan,
@@ -71,10 +76,16 @@ def worker(state: Any) -> dict:
     logger.info("Worker [%s]: executing sub-task '%s'...", task_id, title)
 
     try:
-        res = invoke_with_retry(llm, prompt)
+        t.update(worker_name, AgentStatus.WORKING, f"Calling LLM ({task_type}): {title[:40]}")
+        res = invoke_with_retry_and_fallback(
+            llm,
+            prompt,
+            primary_model=model_name,
+            invoke_fn=invoke_with_retry,
+        )
         output = extract_text(res.content)
         logger.info("Worker [%s]: completed.", task_id)
-        t.update(worker_name, AgentStatus.DONE, f"{title[:40]} - done")
+        t.update(worker_name, AgentStatus.DONE, f"Done {task_type}: {title[:40]}")
     except Exception as exc:
         output = f"[ERROR] Worker {task_id} failed: {exc}"
         logger.error("Worker [%s]: failed with %s", task_id, exc)

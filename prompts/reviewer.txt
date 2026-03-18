@@ -27,8 +27,9 @@ Output format:
 ## Issues Found (if any):
 1. [Issue description + suggested fix]
 
-## Improved Code (if revisions needed):
-[Complete improved code]
+## Suggested Fixes (if revisions needed):
+- [Concrete, minimal changes to make]
+- [Reference files/sections in the provided code block]
 
 ## Summary:
 [Brief assessment]

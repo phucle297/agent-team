@@ -51,6 +51,7 @@ def run_agent_team(task: str, workspace: str | None = None) -> str:
     """
     from graph.workflow import build_graph
     from utils.context import get_context_prompt
+    from utils.continuation import build_continuation_note
     from utils.memory import get_context_for_task, save_run
 
     logger.info("=" * 60)
@@ -88,7 +89,15 @@ def run_agent_team(task: str, workspace: str | None = None) -> str:
     }
 
     logger.info("Running workflow...")
-    result = app.invoke(initial_state)
+    result = app.invoke(initial_state)  # type: ignore[arg-type]
+
+    # Create a compact continuation note to help the next session continue.
+    try:
+        cont = build_continuation_note(result)
+        if cont:
+            result["continuation"] = cont
+    except Exception:
+        pass
 
     # Save run to memory
     save_run(result)

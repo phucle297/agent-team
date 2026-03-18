@@ -3,14 +3,19 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from utils.llm import extract_text, get_google
+from utils.llm import (
+    extract_text,
+    get_llm,
+    invoke_with_retry,
+    invoke_with_retry_and_fallback,
+)
 
 logger = logging.getLogger(__name__)
 
 
 def researcher(state: Any) -> dict:
-    """Research relevant information for the plan using Google Gemini."""
-    llm = get_google()
+    """Research relevant information for the plan."""
+    llm, model_name = get_llm("google")
     plan = state.get("plan", "")
 
     prompt = (
@@ -21,7 +26,12 @@ def researcher(state: Any) -> dict:
     )
 
     logger.info("Researcher: gathering information...")
-    res = llm.invoke(prompt)
+    res = invoke_with_retry_and_fallback(
+        llm,
+        prompt,
+        primary_model=model_name,
+        invoke_fn=invoke_with_retry,
+    )
     logger.info("Researcher: research complete.")
 
     return {"research": extract_text(res.content)}

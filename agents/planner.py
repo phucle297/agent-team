@@ -4,7 +4,12 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from utils.llm import extract_text, get_google
+from utils.llm import (
+    extract_text,
+    get_llm,
+    invoke_with_retry,
+    invoke_with_retry_and_fallback,
+)
 
 if TYPE_CHECKING:
     pass
@@ -19,8 +24,8 @@ def _load_prompt() -> str:
 
 
 def planner(state: Any) -> dict:
-    """Break a user task into actionable steps using Google Gemini."""
-    llm = get_google()
+    """Break a user task into actionable steps."""
+    llm, model_name = get_llm("google")
     task = state["input"]
     project_context = state.get("project_context", "")
     prompt_template = _load_prompt()
@@ -31,7 +36,12 @@ def planner(state: Any) -> dict:
     )
 
     logger.info("Planner: breaking down task...")
-    res = llm.invoke(prompt)
+    res = invoke_with_retry_and_fallback(
+        llm,
+        prompt,
+        primary_model=model_name,
+        invoke_fn=invoke_with_retry,
+    )
     logger.info("Planner: plan created.")
 
     return {"plan": extract_text(res.content)}

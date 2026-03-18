@@ -11,7 +11,12 @@ import logging
 from typing import Any
 
 from utils.agent_events import AgentStatus, tracker
-from utils.llm import extract_text, get_google, invoke_with_retry
+from utils.llm import (
+    extract_text,
+    get_llm,
+    invoke_with_retry,
+    invoke_with_retry_and_fallback,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +46,8 @@ JSON array of sub-tasks:"""
 
 
 def orchestrator(state: Any) -> dict:
-    """Decompose a task into parallel sub-tasks using Google Gemini."""
-    llm = get_google()
+    """Decompose a task into parallel sub-tasks."""
+    llm, model_name = get_llm("google")
     task = state.get("input", state.get("task", ""))
     project_context = state.get("project_context", "")
 
@@ -55,7 +60,12 @@ def orchestrator(state: Any) -> dict:
     )
 
     logger.info("Orchestrator: decomposing task into sub-tasks...")
-    res = invoke_with_retry(llm, prompt)
+    res = invoke_with_retry_and_fallback(
+        llm,
+        prompt,
+        primary_model=model_name,
+        invoke_fn=invoke_with_retry,
+    )
     raw = extract_text(res.content).strip()
 
     # Strip markdown fences if present
@@ -82,6 +92,14 @@ def orchestrator(state: Any) -> dict:
             "description": task,
             "type": "code",
         }]
+
+    # Pre-register workers so the TUI can show them immediately.
+    for st in sub_tasks:
+        task_id = st.get("id", "unknown")
+        title = st.get("title", "")
+        task_type = st.get("type", "code")
+        worker_name = f"worker_{task_id}"
+        tracker.update(worker_name, AgentStatus.IDLE, f"Queued {task_type}: {title[:40]}")
 
     # Build a readable plan from the sub-tasks
     plan_lines = [f"## Sub-tasks ({len(sub_tasks)} parallel workers):\n"]
